@@ -107,20 +107,20 @@ def convert_waveform_to_mel(hp, waveform):
     return spec, melspec
 
 
-def flac_to_mel(hp, input_filepath, output_filepath, dataset_type):
+def flac_to_mel(taco_stft_fn, hp, input_filepath, output_filepath, dataset_type):
     '''
     Функция формирует мел-спектрограмму из аудио-файла и сохраняет её
     '''
     waveform = read_waveform(input_filepath, target_sr=hp['sampling_rate'])
-    spec, melspec = convert_waveform_to_mel(hp, waveform)
-
-    #spec = torchaudio.transforms.InverseMelScale(sample_rate=hp['sampling_rate'], n_stft=int(hp['filter_length'])//2+1, n_mels=hp['n_mel_channels'], f_max=hp['mel_fmax'], f_min=hp['mel_fmin'])(melspec)
-    inv_waveform = torchaudio.transforms.GriffinLim(n_fft=hp['filter_length'])(spec).squeeze()
-    #inv_waveform = inv_waveform * hp['max_wav_value']
-
-    torchaudio.save(output_filepath + '.wav', inv_waveform.unsqueeze(0), hp['sampling_rate'], format="wav")
+    #spec, melspec = convert_waveform_to_mel(hp, waveform)
+    waveform_norm = waveform / hp['max_wav_value']
+    waveform_norm = waveform_norm.squeeze()
+    waveform_norm = torch.autograd.Variable(waveform_norm, requires_grad=False)
+    waveform_norm = waveform_norm.unsqueeze(0)
+    melspec = taco_stft_fn.mel_spectrogram(waveform_norm)
+    melspec = torch.squeeze(melspec, 0)
     # Сохранение файла
-    save_spec(melspec, output_filepath + 'png')
+    #save_spec(melspec, output_filepath + 'png')
     torch.save(melspec, output_filepath)
 
 
@@ -160,24 +160,6 @@ def execute_process(hp, hifitts_path, output_path):
     tmp_df['audio_filepath'] = hifitts_path + '/' + tmp_df['audio_filepath']
     tmp_df['mel_path'] = output_path + '/' + tmp_df['mel_path']
 
-    # Формирование колонки со "строкой-параметрами" для передачи в виде аргумента в функцию
-    '''
-    tmp_df['line_for_create_mel'] = \
-        tmp_df['audio_filepath'] + '==' + \
-        tmp_df['mel_path'] + '==' + \
-        tmp_df['dataset_type'] + '==' + \
-        tmp_df['txt_line']
-    '''
-    '''
-    # Создание мелспектрограмм
-    tmp_df['line_for_create_mel'].apply(lambda x: flac_to_mel(
-        hp,
-        x.split('==')[0],
-        x.split('==')[1],
-        x.split('==')[2],
-        x.split('==')[3],
-    ))
-    '''
     #with open('./hifitts/' + dataset_type + '.txt', 'w') as f:
     #    f.write('')
 
@@ -190,20 +172,12 @@ def execute_process(hp, hifitts_path, output_path):
         hp['mel_fmin'],
         hp['mel_fmax']
     )
-    speaker_id_ref = 0
-    count = 1
+
     for index, row in tqdm.tqdm(tmp_df.iterrows(), total=tmp_df.shape[0]):
-        if count % 99 == 0:
-            speaker_id_ref += 1
-            count = 1
 
         filepath, text, speaker_id = row['txt_line'].split('|')
-        speaker_id = speaker_id.strip()
-        if speaker_id_ref != int(speaker_id):
-            print(str(speaker_id) + '!='+ str(speaker_id_ref))
-            continue
-
         flac_to_mel(
+            taco_stft,
             hp,
             row['audio_filepath'],
             row['mel_path'],
@@ -213,7 +187,6 @@ def execute_process(hp, hifitts_path, output_path):
         with open('./hifitts/' + row['dataset_type'] + '.txt', 'a') as f:
             f.write(row['txt_line'])
 
-        count += 1
 
 def main():
   parser = argparse.ArgumentParser()
