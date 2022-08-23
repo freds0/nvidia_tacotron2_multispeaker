@@ -156,7 +156,7 @@ def execute_process(hp, hifitts_path, output_path):
     os.makedirs(os.path.join(output_path, 'mels'), exist_ok = True)
 
     tmp_df = df.copy()
-
+    tmp_df = df.sample(n=1000)
     tmp_df['audio_filepath'] = hifitts_path + '/' + tmp_df['audio_filepath']
     tmp_df['mel_path'] = output_path + '/' + tmp_df['mel_path']
 
@@ -176,10 +176,16 @@ def execute_process(hp, hifitts_path, output_path):
     for index, row in tqdm.tqdm(tmp_df.iterrows(), total=tmp_df.shape[0]):
 
         filepath, text, speaker_id = row['txt_line'].split('|')
+        #full_filepath = row['audio_filepath'].replace('.flac', '.wav')
+        full_filepath = row['audio_filepath']
+        if not (os.path.exists(full_filepath)):
+           print(full_filepath)
+           continue
+
         flac_to_mel(
             taco_stft,
             hp,
-            row['audio_filepath'],
+            full_filepath,
             row['mel_path'],
             row['dataset_type']
         )

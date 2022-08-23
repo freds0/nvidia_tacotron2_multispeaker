@@ -1,5 +1,7 @@
 import torch
-from librosa.filters import mel as librosa_mel_fn
+#from librosa.filters import mel as librosa_mel_fn
+import torchaudio
+import torchaudio.functional as F
 from audio_processing import dynamic_range_compression
 from audio_processing import dynamic_range_decompression
 from stft import STFT
@@ -47,9 +49,18 @@ class TacotronSTFT(torch.nn.Module):
         self.n_mel_channels = n_mel_channels
         self.sampling_rate = sampling_rate
         self.stft_fn = STFT(filter_length, hop_length, win_length)
-        mel_basis = librosa_mel_fn(
-            sampling_rate, filter_length, n_mel_channels, mel_fmin, mel_fmax)
-        mel_basis = torch.from_numpy(mel_basis).float()
+        #mel_basis = librosa_mel_fn(
+        #    sampling_rate, filter_length, n_mel_channels, mel_fmin, mel_fmax)
+        mel_basis = F.melscale_fbanks(
+            int(filter_length // 2 + 1),
+            n_mels=n_mel_channels,
+            f_min=mel_fmin,
+            f_max=mel_fmax,
+            sample_rate=sampling_rate
+        )
+        #mel_basis = torch.from_numpy(mel_basis).float()
+        #mel_basis = torch.tensor(mel_basis).to(torch.float32).T
+        mel_basis = mel_basis.to(torch.float32).T
         self.register_buffer('mel_basis', mel_basis)
 
     def spectral_normalize(self, magnitudes):
