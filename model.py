@@ -524,13 +524,13 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths)
 
-    def inference(self, inputs, speaker_id):
+    def inference(self, inputs, speaker_id, device='cpu'):
         outputs = []
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder.inference(embedded_inputs)
         outputs.append(encoder_outputs)
         ''' ADD SPEAKER '''
-        speaker_id = torch.IntTensor([speaker_id])
+        speaker_id = torch.IntTensor([speaker_id]).to(device)
         speaker_id = speaker_id.unsqueeze(1)
         embedded_speaker = self.speakers_embedding(speaker_id)
         embedded_speaker = embedded_speaker.expand(-1, encoder_outputs.shape[1], -1)
